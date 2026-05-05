@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "Part": {
+      "title": "Part",
+      "description": "A spare part in the inventory",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the part" },
+        "costPrice": { "type": "number", "description": "Cost price of the part" },
+        "quantity": { "type": "number", "description": "Current inventory level" },
+        "lowStockThreshold": { "type": "number", "description": "Threshold for low stock warnings" },
+        "lastUpdated": { "type": "string", "format": "date-time", "description": "When the part was last updated" }
+      },
+      "required": ["name", "costPrice", "quantity"]
+    },
+    "RepairJob": {
+      "title": "Repair Job",
+      "description": "A customer repair record",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "vehicleModel": { "type": "string" },
+        "issue": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "ongoing", "completed"] },
+        "repairFee": { "type": "number" },
+        "partsUsed": {
+          "type": "array",
+          "items": { "$ref": "#/entities/UsedPart" }
+        },
+        "totalPartsCost": { "type": "number" },
+        "profit": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "vehicleNumber", "status"]
+    },
+    "UsedPart": {
+      "title": "Used Part",
+      "description": "A part used in a repair",
+      "type": "object",
+      "properties": {
+        "partId": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "costAtTime": { "type": "number" }
+      }
+    },
+    "DailySummary": {
+      "title": "Daily Summary",
+      "description": "Aggregated daily revenue and profit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "totalRevenue": { "type": "number" },
+        "totalProfit": { "type": "number" },
+        "jobCount": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "inventory": {
+      "schema": "Part",
+      "description": "Inventory of spare parts"
+    },
+    "jobs": {
+      "schema": "RepairJob",
+      "description": "History and current repair jobs"
+    },
+    "daily_summaries": {
+      "schema": "DailySummary",
+      "description": "Aggregated daily business metrics"
+    }
+  }
+}

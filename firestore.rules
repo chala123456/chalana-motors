@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(data) {
+      return isSignedIn() && data.userId == request.auth.uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. Inventory Collection
+    match /inventory/{partId} {
+      function isValidPart(data) {
+        return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+               data.costPrice is number && data.costPrice >= 0 &&
+               data.quantity is number && data.quantity >= 0 &&
+               data.lowStockThreshold is number &&
+               data.userId == request.auth.uid;
+      }
+
+      allow get: if isOwner(resource.data);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidPart(request.resource.data) && isValidId(partId);
+      allow update: if isOwner(resource.data) && isValidPart(request.resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+
+    // 2. Jobs Collection
+    match /jobs/{jobId} {
+      function isValidJob(data) {
+        return data.customerName is string && data.customerName.size() > 0 &&
+               data.vehicleNumber is string && data.vehicleNumber.size() > 0 &&
+               data.status in ['pending', 'ongoing', 'completed'] &&
+               data.userId == request.auth.uid;
+      }
+
+      allow get: if isOwner(resource.data);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidJob(request.resource.data) && isValidId(jobId);
+      allow update: if isOwner(resource.data) && isValidJob(request.resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+
+    // 3. Daily Summaries Collection
+    match /daily_summaries/{summaryId} {
+      allow read, get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}
