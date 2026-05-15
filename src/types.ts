@@ -2,7 +2,9 @@ export interface Part {
   id: string;
   name: string;
   category: string; // e.g. Honda, Yamaha, Bajaj
-  costPrice: number;
+  barcode?: string;
+  costPrice: number; // Selling Price to customer
+  purchasePrice: number; // Buying price for the store
   quantity: number;
   lowStockThreshold: number;
   lastUpdated: string;
@@ -12,7 +14,8 @@ export interface UsedPart {
   partId: string;
   name: string;
   quantity: number;
-  costAtTime: number;
+  costAtTime: number; // Selling Price at time of sale
+  purchasePriceAtTime: number; // Buying Price at time of sale
 }
 
 export enum JobStatus {
@@ -29,10 +32,11 @@ export interface ServiceItem {
 export interface RepairJob {
   id: string;
   jobRef: string;
-  customerName: string;
-  contactNumber: string;
+  customerName?: string;
+  contactNumber?: string;
   vehicleNumber: string;
   vehicleModel: string;
+  jobType?: 'REPAIR' | 'SALE';
   issue: string; // Keeping for backward compatibility or as summary
   services: ServiceItem[];
   currentKm?: string;
@@ -52,6 +56,34 @@ export interface DailySummary {
   totalProfit: number;
   jobCount: number;
   lastUpdated: string;
+}
+
+export interface ServicePreset {
+  id: string;
+  name: string;
+  price: number;
+  type?: 'service' | 'part';
+}
+
+export interface Customer {
+  id: string;
+  customerName: string;
+  contactNumber: string;
+  email?: string;
+  address?: string;
+  vehicleNumbers?: string[];
+  userId: string;
+  createdAt: string;
+}
+
+export interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  date: string;
+  userId: string;
+  createdAt: string;
 }
 
 export type OperationType = 'create' | 'update' | 'delete' | 'list' | 'get' | 'write';

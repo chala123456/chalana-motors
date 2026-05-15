@@ -3,12 +3,16 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { RepairJobs } from './components/RepairJobs';
-import { auth, db } from './lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
-import { Part, RepairJob } from './types';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { Part, RepairJob, ServicePreset, Customer, Expense } from './types';
 import { Wrench, LogIn, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Customers } from './components/Customers';
+import { Expenses } from './components/Expenses';
+import { DailyReports } from './components/DailyReports';
+import { ScannerMode } from './components/ScannerMode';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -16,6 +20,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [inventory, setInventory] = useState<Part[]>([]);
   const [jobs, setJobs] = useState<RepairJob[]>([]);
+  const [servicePresets, setServicePresets] = useState<ServicePreset[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [fetchingData, setFetchingData] = useState(false);
 
   useEffect(() => {
@@ -30,6 +37,8 @@ export default function App() {
     if (!user) {
         setInventory([]);
         setJobs([]);
+        setCustomers([]);
+        setExpenses([]);
         return;
     }
 
@@ -43,14 +52,14 @@ export default function App() {
         partsArr.push({ id: doc.id, ...doc.data() } as Part);
       });
       setInventory(partsArr);
-      setFetchingData(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'inventory');
     });
 
     // Listen to Jobs
     const qJobs = query(
         collection(db, 'jobs'), 
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', user.uid)
     );
     const unsubJobs = onSnapshot(qJobs, (snapshot) => {
       const jobsArr: RepairJob[] = [];
@@ -62,12 +71,60 @@ export default function App() {
               createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString()
           } as RepairJob);
       });
+      // Sort in memory to avoid needing a composite index
+      jobsArr.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
       setJobs(jobsArr);
+      setFetchingData(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'jobs');
+    });
+
+    // Listen to Service Presets
+    const qPresets = query(collection(db, 'service_presets'), where('userId', '==', user.uid));
+    const unsubPresets = onSnapshot(qPresets, (snapshot) => {
+      const presetsArr: ServicePreset[] = [];
+      snapshot.forEach(doc => {
+        presetsArr.push({ id: doc.id, ...doc.data() } as ServicePreset);
+      });
+      setServicePresets(presetsArr);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'service_presets');
+    });
+
+    // Listen to Customers
+    const qCustomers = query(collection(db, 'customers'), where('userId', '==', user.uid));
+    const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
+      const custArr: Customer[] = [];
+      snapshot.forEach(doc => {
+        custArr.push({ id: doc.id, ...doc.data() } as Customer);
+      });
+      setCustomers(custArr);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'customers');
+    });
+
+    // Listen to Expenses
+    const qExpenses = query(collection(db, 'expenses'), where('userId', '==', user.uid));
+    const unsubExpenses = onSnapshot(qExpenses, (snapshot) => {
+      const expArr: Expense[] = [];
+      snapshot.forEach(doc => {
+        expArr.push({ id: doc.id, ...doc.data() } as Expense);
+      });
+      setExpenses(expArr);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'expenses');
     });
 
     return () => {
       unsubInv();
       unsubJobs();
+      unsubPresets();
+      unsubCustomers();
+      unsubExpenses();
     };
   }, [user]);
 
@@ -122,7 +179,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#0a0a0a] text-white">
+    <div className="flex flex-col lg:flex-row h-screen bg-[#0a0a0a] text-white print:bg-white print:text-black">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -130,7 +187,7 @@ export default function App() {
         onLogout={handleLogout}
       />
       
-      <main className="flex-1 overflow-y-auto relative">
+      <main className="flex-1 overflow-y-auto relative print:overflow-visible print:static print:w-full pt-16 lg:pt-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -140,9 +197,13 @@ export default function App() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            {activeTab === 'dashboard' && <Dashboard jobs={jobs} inventory={inventory} />}
+            {activeTab === 'dashboard' && <Dashboard jobs={jobs} inventory={inventory} expenses={expenses} />}
             {activeTab === 'inventory' && <Inventory parts={inventory} loading={fetchingData} />}
-            {activeTab === 'jobs' && <RepairJobs jobs={jobs} inventory={inventory} loading={fetchingData} />}
+            {activeTab === 'jobs' && <RepairJobs jobs={jobs} inventory={inventory} loading={fetchingData} servicePresets={servicePresets} customers={customers} />}
+            {activeTab === 'customers' && <Customers customers={customers} loading={fetchingData} jobs={jobs} />}
+            {activeTab === 'expenses' && <Expenses expenses={expenses} loading={fetchingData} />}
+            {activeTab === 'reports' && <DailyReports jobs={jobs} inventory={inventory} expenses={expenses} />}
+            {activeTab === 'scanner' && <ScannerMode onClose={() => setActiveTab('dashboard')} />}
           </motion.div>
         </AnimatePresence>
       </main>

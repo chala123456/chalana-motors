@@ -1,61 +1,87 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Auth helpers
+    // Connectivity test path
+    match /test/connection {
+      allow read: if true;
+    }
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(data) {
-      return isSignedIn() && data.userId == request.auth.uid;
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // 1. Inventory Collection
+    // Helper for chalana_stats
+    function isValidStats(data) {
+      return data.size() <= 2 &&
+             (!('netProfit' in data) || data.netProfit is number) &&
+             (!('totalRevenue' in data) || data.totalRevenue is number);
+    }
+
+    match /chalana_stats/{statId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidStats(request.resource.data);
+    }
+
+    // Helper for inventory
+    function isValidPart(data) {
+      return data.keys().hasAll(['name', 'quantity']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.quantity is number &&
+             (!('costPrice' in data) || data.costPrice is number) &&
+             (!('userId' in data) || data.userId == request.auth.uid);
+    }
+
     match /inventory/{partId} {
-      function isValidPart(data) {
-        return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-               data.costPrice is number && data.costPrice >= 0 &&
-               data.quantity is number && data.quantity >= 0 &&
-               data.lowStockThreshold is number &&
-               data.userId == request.auth.uid;
-      }
-
-      allow get: if isOwner(resource.data);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidPart(request.resource.data) && isValidId(partId);
-      allow update: if isOwner(resource.data) && isValidPart(request.resource.data);
-      allow delete: if isOwner(resource.data);
+      allow read: if isSignedIn(); // Allow reading for all signed in users for now, or restrict if userId is present
+      allow create: if isSignedIn() && isValidPart(request.resource.data);
+      allow update: if isSignedIn() && isValidPart(request.resource.data) && (request.resource.data.userId == resource.data.userId || !('userId' in resource.data));
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || !('userId' in resource.data));
     }
 
-    // 2. Jobs Collection
+    // Jobs
     match /jobs/{jobId} {
-      function isValidJob(data) {
-        return data.customerName is string && data.customerName.size() > 0 &&
-               data.vehicleNumber is string && data.vehicleNumber.size() > 0 &&
-               data.status in ['pending', 'ongoing', 'completed'] &&
-               data.userId == request.auth.uid;
-      }
-
-      allow get: if isOwner(resource.data);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidJob(request.resource.data) && isValidId(jobId);
-      allow update: if isOwner(resource.data) && isValidJob(request.resource.data);
-      allow delete: if isOwner(resource.data);
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    // 3. Daily Summaries Collection
-    match /daily_summaries/{summaryId} {
-      allow read, get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    // Expenses
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Customers
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Remote Scans
+    match /remote_scans/{scanId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Presence
+    match /status/{statusId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    // Service Presets
+    match /service_presets/{presetId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

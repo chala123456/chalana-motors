@@ -33,7 +33,7 @@
         "profit": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["customerName", "vehicleNumber", "status"]
+      "required": ["status"]
     },
     "UsedPart": {
       "title": "Used Part",
@@ -58,9 +58,95 @@
         "jobCount": { "type": "number" },
         "lastUpdated": { "type": "string", "format": "date-time" }
       }
+    },
+    "ServicePreset": {
+      "title": "Service & Part Preset",
+      "description": "Predefined services or parts and prices for repair jobs",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "type": { "type": "string", "enum": ["service", "part"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price", "userId"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer information",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "vehicleNumbers": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["contactNumber", "userId"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Business expense record",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "amount", "date", "userId"]
+    },
+    "RemoteScan": {
+      "title": "Remote Scan Session",
+      "description": "Real-time bridge for mobile barcode scanning",
+      "type": "object",
+      "properties": {
+        "barcode": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "added", "error", "not_found"] },
+        "partName": { "type": "string" },
+        "userId": { "type": "string" },
+        "quickAddData": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "price": { "type": "number" }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "updatedAt"]
+    },
+    "UserStatus": {
+      "title": "User Presence Status",
+      "description": "Tracks if the desktop receiver is active for remote scanning",
+      "type": "object",
+      "properties": {
+        "remoteReceiverActive": { "type": "boolean" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "GlobalStats": {
+      "title": "Global Stats",
+      "description": "System-wide financial metrics",
+      "type": "object",
+      "properties": {
+        "netProfit": { "type": "number" },
+        "totalRevenue": { "type": "number" }
+      }
     }
   },
   "firestore": {
+    "chalana_stats": {
+      "schema": "GlobalStats",
+      "description": "Aggregated system stats for the dashboard"
+    },
     "inventory": {
       "schema": "Part",
       "description": "Inventory of spare parts"
@@ -72,6 +158,26 @@
     "daily_summaries": {
       "schema": "DailySummary",
       "description": "Aggregated daily business metrics"
+    },
+    "service_presets": {
+      "schema": "ServicePreset",
+      "description": "Standard service pricing templates"
+    },
+    "customers": {
+      "schema": "Customer",
+      "description": "Customer database"
+    },
+    "expenses": {
+      "schema": "Expense",
+      "description": "Business expense tracking"
+    },
+    "remote_scans": {
+      "schema": "RemoteScan",
+      "description": "Mobile scanning bridge"
+    },
+    "status": {
+      "schema": "UserStatus",
+      "description": "User presence and receiver state"
     }
   }
 }

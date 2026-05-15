@@ -8,3 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 export function formatCurrency(amount: number) {
   return `Rs. ${new Intl.NumberFormat('en-LK').format(amount)}`;
 }
+
+export function normalizeSearch(str: string) {
+  return str.toLowerCase().replace(/[\s-]/g, '');
+}
